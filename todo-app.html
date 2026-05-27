@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="icon" type="image/png" href="favicon.ico"/>
+<title>Clean ToDo</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0a0a0a;--fg:#ffffff;--muted:#555;--muted2:#2a2a2a;--line:#1e1e1e;
+  --card-bg:#141414;--card-hover:#1c1c1c;--card-done-bg:#0f0f0f;--card-done-fg:#3a3a3a;
+  --tag-bg:#1e1e1e;--tag-fg:#666;--input-bg:#111;--overdue:#e05252;
+  --filter-active-bg:#fff;--filter-active-fg:#000;--badge-bg:#141414;
+  --progress-bg:#1e1e1e;--progress-fill:#ffffff;--toast-bg:#1a1a1a;--toast-fg:#fff;
+}}
+@media(prefers-color-scheme:light){:root{
+  --bg:#f4f4f5;--fg:#000000;--muted:#aaa;--muted2:#e0e0e0;--line:#e8e8e8;
+  --card-bg:#ffffff;--card-hover:#fafafa;--card-done-bg:#f9f9f9;--card-done-fg:#ccc;
+  --tag-bg:#f0f0f0;--tag-fg:#777;--input-bg:#fff;--overdue:#c0392b;
+  --filter-active-bg:#000;--filter-active-fg:#fff;--badge-bg:#fff;
+  --progress-bg:#e8e8e8;--progress-fill:#000000;--toast-bg:#111;--toast-fg:#fff;
+}}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);min-height:100vh}
+.app{max-width:560px;margin:0 auto;padding:2.5rem 1.5rem;font-family:'DM Sans',sans-serif}
+
+/* HEADER */
+.header{margin-bottom:1.5rem}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+h1.title{font-size:30px;font-weight:700;color:var(--fg);letter-spacing:-0.5px}
+.header-sub{font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.03em;margin-bottom:12px}
+.badges{display:flex;gap:6px}
+.badge{font-size:11px;font-weight:600;padding:4px 10px;background:var(--badge-bg);border:1px solid var(--line);color:var(--muted);border-radius:6px}
+.badge span{color:var(--fg)}
+
+/* PROGRESS BAR */
+.progress-wrap{margin-bottom:1.5rem}
+.progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.progress-label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.progress-pct{font-size:11px;font-weight:700;color:var(--fg)}
+.progress-bar{height:4px;background:var(--progress-bg);border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;background:var(--progress-fill);border-radius:99px;transition:width .5s cubic-bezier(.4,0,.2,1);width:0%}
+
+/* ADD FORM */
+.add-form{margin-bottom:1.25rem}
+.add-row{display:flex;background:var(--card-bg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:10px;gap:8px;align-items:center}
+.add-row input{background:transparent;border:none;outline:none;color:var(--fg);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;flex:1;caret-color:var(--fg)}
+.add-row input::placeholder{color:var(--muted);font-weight:400}
+.add-row button{background:var(--fg);border:none;color:var(--bg);font-family:'DM Sans',sans-serif;font-size:18px;cursor:pointer;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;transition:opacity .15s}
+.add-row button:hover{opacity:.8}
+.meta-row{display:flex;gap:8px;flex-wrap:wrap}
+.meta-row select,.meta-row input[type=date],.meta-row input[type=text]{
+  background:var(--card-bg);border:1px solid var(--line);color:var(--fg);
+  font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;
+  padding:6px 10px;outline:none;-webkit-appearance:none;appearance:none;border-radius:8px;
+}
+.meta-row select:focus,.meta-row input:focus{border-color:var(--fg)}
+
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:1rem}
+.search-wrap i{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none}
+.search-wrap input{width:100%;background:var(--card-bg);border:1px solid var(--line);color:var(--fg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:8px 12px 8px 34px;outline:none;border-radius:8px}
+.search-wrap input::placeholder{color:var(--muted);font-weight:400}
+.search-wrap input:focus{border-color:var(--fg)}
+
+/* FILTERS */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.5rem}
+.filter-btn{background:transparent;border:1px solid var(--line);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:5px 13px;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;transition:all .15s;border-radius:20px}
+.filter-btn.active{background:var(--filter-active-bg);border-color:var(--filter-active-bg);color:var(--filter-active-fg)}
+.filter-btn:hover:not(.active){border-color:var(--fg);color:var(--fg)}
+
+/* CARDS */
+.card-list{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--card-bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:grab;display:flex;align-items:center;gap:12px;
+  animation:slideIn .25s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(24px)}}
+.card.removing{animation:slideOut .2s cubic-bezier(.4,0,.2,1) forwards}
+.card:hover{background:var(--card-hover)}
+.card.dragging{opacity:.25}
+.card.drag-over{border-top:2px solid var(--fg)}
+.card.done-card{background:var(--card-done-bg)}
+
+.check{width:22px;height:22px;border:1.5px solid var(--muted2);background:transparent;cursor:pointer;flex-shrink:0;appearance:none;-webkit-appearance:none;border-radius:5px;font-size:17px;padding:0;line-height:1;transition:transform .15s,border-color .15s}
+.check:hover{border-color:var(--fg);transform:scale(1.1)}
+.check.is-done{border:none;background:transparent}
+
+.card-body{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card-text{font-size:14px;font-weight:500;color:var(--fg);line-height:1.4;word-break:break-word}
+.card.done-card .card-text{color:var(--card-done-fg);text-decoration:line-through;text-decoration-color:var(--muted2)}
+
+.card-pills{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.pri{font-size:10px;letter-spacing:.08em;padding:2px 7px;border:1px solid;text-transform:uppercase;font-weight:700;border-radius:4px}
+.pri-high{border-color:#e05252;color:#e05252}
+.pri-med{border-color:#e0943a;color:#e0943a}
+.pri-low{border-color:var(--muted2);color:var(--muted)}
+.tag{font-size:11px;font-weight:600;padding:2px 8px;background:var(--tag-bg);color:var(--tag-fg);border-radius:4px}
+.due{font-size:11px;font-weight:500;color:var(--muted)}
+.due.overdue{color:var(--overdue)}
+
+.card-del{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;opacity:0;transition:opacity .15s;padding:0;line-height:1;flex-shrink:0}
+.card:hover .card-del{opacity:1}
+.card-del:hover{color:var(--fg)}
+
+/* PIN */
+.card.pinned{border-color:var(--fg);border-width:1.5px}
+.pin-btn{background:transparent;border:none;cursor:pointer;padding:0;line-height:1;flex-shrink:0;font-size:13px;opacity:0;transition:opacity .15s;color:var(--muted)}
+.card:hover .pin-btn{opacity:1}
+.card.pinned .pin-btn{opacity:1;color:var(--fg)}
+.pin-badge{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:2px 7px;border:1px solid var(--line);border-radius:4px}
+.pinned-label{font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--fg);margin:0 0 .75rem;display:flex;align-items:center;gap:6px}
+.pinned-label::after{content:'';flex:1;height:1px;background:var(--line)}
+
+/* SECTION */
+.section-label{font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin:1.75rem 0 .75rem}
+.empty{font-size:13px;color:var(--muted);padding:2rem 0;text-align:center;font-weight:500;letter-spacing:.03em}
+
+/* FOOTER */
+.footer{display:flex;justify-content:space-between;align-items:center;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--line);flex-wrap:wrap;gap:10px}
+.footer-left{font-size:12px;color:var(--muted);font-weight:500}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+.icon-btn{background:var(--card-bg);border:1px solid var(--line);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:5px;transition:all .15s;border-radius:8px}
+.icon-btn:hover{border-color:var(--fg);color:var(--fg)}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(20px);background:var(--toast-bg);color:var(--toast-fg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:10px 20px;border-radius:10px;opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* HIDDEN FILE INPUT */
+#import-input{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-top">
+      <h1 class="title">Tasks</h1>
+      <div class="badges">
+        <div class="badge">Total <span id="b-total">0</span></div>
+        <div class="badge">Done <span id="b-done">0</span></div>
+        <div class="badge">Left <span id="b-left">0</span></div>
+      </div>
+    </div>
+    <p class="header-sub" id="header-sub">no tasks yet</p>
+    <div class="progress-wrap">
+      <div class="progress-header">
+        <span class="progress-label">Progress</span>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="add-form">
+    <div class="add-row">
+      <input id="new-text" placeholder="add a new task..." autocomplete="off"/>
+      <button id="add-btn" aria-label="Add">+</button>
+    </div>
+    <div class="meta-row">
+      <select id="new-pri">
+        <option value="none">no priority</option>
+        <option value="high">high</option>
+        <option value="med">medium</option>
+        <option value="low">low</option>
+      </select>
+      <input type="text" id="new-tag" placeholder="tag (optional)" style="width:130px"/>
+      <input type="date" id="new-due"/>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <i class="ti ti-search" aria-hidden="true"></i>
+    <input id="search" placeholder="search tasks..."/>
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" data-f="all">all</button>
+    <button class="filter-btn" data-f="active">active</button>
+    <button class="filter-btn" data-f="done">done</button>
+    <button class="filter-btn" data-f="high">high</button>
+    <button class="filter-btn" data-f="overdue">overdue</button>
+  </div>
+
+  <div id="pinned-section" style="display:none">
+    <div class="pinned-label">📌 Pinned</div>
+    <div class="card-list" id="pinned-list"></div>
+    <div style="height:1rem"></div>
+  </div>
+  <div class="card-list" id="active-list"></div>
+  <div id="done-section" style="display:none">
+    <div class="section-label">Completed</div>
+    <div class="card-list" id="done-list"></div>
+  </div>
+
+  <div class="footer">
+    <span class="footer-left" id="footer-txt"></span>
+    <div class="btn-group">
+      <button class="icon-btn" id="import-btn"><i class="ti ti-upload" style="font-size:13px"></i> Import</button>
+      <button class="icon-btn" id="export-txt"><i class="ti ti-file-text" style="font-size:13px"></i> TXT</button>
+      <button class="icon-btn" id="export-xlsx"><i class="ti ti-table" style="font-size:13px"></i> Excel</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="import-input" accept=".txt,.xlsx,.xls"/>
+<div class="toast" id="toast"></div>
+
+<script>
+let todos = [];
+let filter = 'all';
+let search = '';
+let dragSrc = null;
+
+function today(){ return new Date().toISOString().split('T')[0]; }
+function isOverdue(t){ return t.due && !t.done && t.due < today(); }
+function fmtDue(d){
+  if(!d) return '';
+  const [y,m,dy] = d.split('-');
+  return dy+'/'+m+'/'+y;
+}
+function save(){ localStorage.setItem('todos_v8', JSON.stringify(todos)); }
+function load(){
+  try { todos = JSON.parse(localStorage.getItem('todos_v8')) || []; } catch(e){ todos=[]; }
+}
+function matches(t){
+  const q = search.toLowerCase();
+  if(q && !t.text.toLowerCase().includes(q) && !(t.tag||'').toLowerCase().includes(q)) return false;
+  if(filter==='active') return !t.done;
+  if(filter==='done') return t.done;
+  if(filter==='high') return t.pri==='high';
+  if(filter==='overdue') return isOverdue(t);
+  return true;
+}
+
+// TOAST
+let toastTimer;
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+// BUILD CARD
+function buildCard(t, i){
+  const card = document.createElement('div');
+  card.className = 'card' + (t.done ? ' done-card' : '') + (t.pinned ? ' pinned' : '');
+  card.draggable = true;
+  card.dataset.idx = i;
+
+  const cb = document.createElement('button');
+  cb.className = 'check' + (t.done ? ' is-done' : '');
+  cb.setAttribute('aria-label', t.done ? 'Mark incomplete' : 'Mark complete');
+  cb.textContent = t.done ? '✅' : '';
+  cb.onclick = () => { todos[i].done = !todos[i].done; save(); render(); };
+
+  const body = document.createElement('div');
+  body.className = 'card-body';
+
+  const txt = document.createElement('span');
+  txt.className = 'card-text';
+  txt.textContent = t.text;
+  body.appendChild(txt);
+
+
+
+  const pills = document.createElement('div');
+  pills.className = 'card-pills';
+  if(t.pri && t.pri!=='none'){
+    const p = document.createElement('span');
+    p.className = 'pri pri-'+t.pri;
+    p.textContent = t.pri==='med'?'medium':t.pri;
+    pills.appendChild(p);
+  }
+  if(t.tag){
+    const tg = document.createElement('span');
+    tg.className='tag'; tg.textContent='#'+t.tag;
+    pills.appendChild(tg);
+  }
+  if(t.due){
+    const du = document.createElement('span');
+    du.className='due'+(isOverdue(t)?' overdue':'');
+    du.textContent=(isOverdue(t)?'overdue · ':'')+fmtDue(t.due);
+    pills.appendChild(du);
+  }
+  if(pills.children.length) body.appendChild(pills);
+
+  const pin = document.createElement('button');
+  pin.className='pin-btn'; pin.setAttribute('aria-label','Pin');
+  pin.innerHTML = t.pinned ? '📌' : '<i class="ti ti-pin" style="font-size:14px"></i>';
+  pin.onclick = () => { todos[i].pinned = !todos[i].pinned; save(); render(); showToast(todos[i].pinned ? '📌 Pinned!' : 'Unpinned'); };
+
+  const del = document.createElement('button');
+  del.className='card-del'; del.textContent='×'; del.setAttribute('aria-label','Delete');
+  del.onclick = () => {
+    card.classList.add('removing');
+    card.addEventListener('animationend', ()=>{ todos.splice(i,1); save(); render(); }, {once:true});
+  };
+
+  card.append(cb, body, pin, del);
+
+  // DRAG
+  card.addEventListener('dragstart', e=>{dragSrc=i; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move';});
+  card.addEventListener('dragend', ()=>{ card.classList.remove('dragging'); document.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over')); });
+  card.addEventListener('dragover', e=>{ e.preventDefault(); card.classList.add('drag-over'); });
+  card.addEventListener('dragleave', ()=>card.classList.remove('drag-over'));
+  card.addEventListener('drop', e=>{
+    e.preventDefault(); card.classList.remove('drag-over');
+    if(dragSrc===null||dragSrc===i) return;
+    const moved = todos.splice(dragSrc,1)[0];
+    const ni = todos.indexOf(t);
+    todos.splice(ni+1,0,moved);
+    dragSrc=null; save(); render();
+  });
+
+  return card;
+}
+
+// RENDER
+function render(){
+  const activeEl = document.getElementById('active-list');
+  const doneEl = document.getElementById('done-list');
+  const pinnedEl = document.getElementById('pinned-list');
+  const doneSection = document.getElementById('done-section');
+  const pinnedSection = document.getElementById('pinned-section');
+  activeEl.innerHTML=''; doneEl.innerHTML=''; pinnedEl.innerHTML='';
+
+  const pinned = todos.filter(t=>t.pinned && !t.done && matches(t));
+  const active = todos.filter(t=>!t.done && !t.pinned && matches(t));
+  const done = todos.filter(t=>t.done && matches(t));
+
+  if(pinned.length){
+    pinnedSection.style.display='block';
+    pinned.forEach(t=>pinnedEl.appendChild(buildCard(t, todos.indexOf(t))));
+  } else {
+    pinnedSection.style.display='none';
+  }
+
+  if(!active.length){
+    activeEl.innerHTML='<div class="empty">no active tasks</div>';
+  } else {
+    active.forEach(t=>activeEl.appendChild(buildCard(t, todos.indexOf(t))));
+  }
+
+  if(done.length){
+    doneSection.style.display='block';
+    done.forEach(t=>doneEl.appendChild(buildCard(t, todos.indexOf(t))));
+  } else {
+    doneSection.style.display='none';
+  }
+
+  const total=todos.length, doneCount=todos.filter(x=>x.done).length, left=total-doneCount;
+  document.getElementById('b-total').textContent=total;
+  document.getElementById('b-done').textContent=doneCount;
+  document.getElementById('b-left').textContent=left;
+  document.getElementById('footer-txt').textContent=total?left+' remaining':'';
+  document.getElementById('header-sub').textContent=total?doneCount+' of '+total+' completed':'no tasks yet';
+
+  // PROGRESS BAR
+  const pct = total ? Math.round((doneCount/total)*100) : 0;
+  document.getElementById('progress-fill').style.width = pct+'%';
+  document.getElementById('progress-pct').textContent = pct+'%';
+}
+
+// ADD
+function addTodo(){
+  const txt=document.getElementById('new-text').value.trim();
+  if(!txt) return;
+  todos.unshift({
+    text:txt, done:false, pinned:false,
+    pri:document.getElementById('new-pri').value,
+    tag:document.getElementById('new-tag').value.trim()||null,
+    due:document.getElementById('new-due').value||null
+  });
+  document.getElementById('new-text').value='';
+  document.getElementById('new-tag').value='';
+  document.getElementById('new-due').value='';
+  document.getElementById('new-pri').value='none';
+  save(); render();
+}
+
+document.getElementById('add-btn').onclick=addTodo;
+document.getElementById('new-text').addEventListener('keydown',e=>{if(e.key==='Enter')addTodo();});
+document.getElementById('search').oninput=e=>{search=e.target.value;render();};
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    filter=btn.dataset.f;
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  };
+});
+
+// EXPORT TXT
+document.getElementById('export-txt').onclick=()=>{
+  if(!todos.length){ showToast('no tasks to export'); return; }
+  const lines=todos.map(t=>{
+    let l=(t.done?'[x]':'[ ]')+' '+t.text;
+    if(t.pri&&t.pri!=='none') l+=' ['+t.pri+']';
+    if(t.tag) l+=' #'+t.tag;
+    if(t.due) l+=' due:'+t.due;
+    return l;
+  });
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='tasks.txt'; a.click();
+  showToast('exported as tasks.txt');
+};
+
+// EXPORT EXCEL
+document.getElementById('export-xlsx').onclick=()=>{
+  if(!todos.length){ showToast('no tasks to export'); return; }
+  const rows=[['Task','Status','Priority','Tag','Due Date']];
+  todos.forEach(t=>rows.push([
+    t.text,
+    t.done?'Done':'Active',
+    t.pri&&t.pri!=='none'?(t.pri==='med'?'Medium':t.pri.charAt(0).toUpperCase()+t.pri.slice(1)):'',
+    t.tag?'#'+t.tag:'',
+    t.due||''
+  ]));
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:40},{wch:10},{wch:12},{wch:15},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Tasks');
+  XLSX.writeFile(wb,'tasks.xlsx');
+  showToast('exported as tasks.xlsx');
+};
+
+// IMPORT
+document.getElementById('import-btn').onclick=()=>{
+  document.getElementById('import-input').click();
+};
+
+document.getElementById('import-input').onchange=function(){
+  const file = this.files[0];
+  if(!file) return;
+  const name = file.name.toLowerCase();
+
+  if(name.endsWith('.txt')){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const lines = e.target.result.split('\n').filter(l=>l.trim());
+      let imported = 0;
+      lines.forEach(line => {
+        const done = line.startsWith('[x]');
+        let text = line.replace(/^\[(x| )\]\s*/,'');
+        let pri='none', tag=null, due=null;
+        const priMatch = text.match(/\[(high|med|medium|low)\]/i);
+        if(priMatch){ pri=priMatch[1].toLowerCase()==='medium'?'med':priMatch[1].toLowerCase(); text=text.replace(priMatch[0],'').trim(); }
+        const tagMatch = text.match(/#(\S+)/);
+        if(tagMatch){ tag=tagMatch[1]; text=text.replace(tagMatch[0],'').trim(); }
+        const dueMatch = text.match(/due:(\d{4}-\d{2}-\d{2})/);
+        if(dueMatch){ due=dueMatch[1]; text=text.replace(dueMatch[0],'').trim(); }
+        if(text) { todos.push({text,done,pri,tag,due}); imported++; }
+      });
+      save(); render();
+      showToast(imported+' task'+(imported===1?'':'s')+' imported from TXT');
+      this.value='';
+    };
+    reader.readAsText(file);
+
+  } else if(name.endsWith('.xlsx')||name.endsWith('.xls')){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+      let imported = 0;
+      rows.forEach((row,idx)=>{
+        if(idx===0) return; // skip header
+        const text = (row[0]||'').toString().trim();
+        if(!text) return;
+        const done = (row[1]||'').toString().toLowerCase()==='done';
+        const priRaw = (row[2]||'').toString().toLowerCase();
+        const pri = priRaw==='medium'?'med':(priRaw||'none');
+        const tagRaw = (row[3]||'').toString().replace(/^#/,'').trim();
+        const tag = tagRaw||null;
+        const due = (row[4]||'').toString().trim()||null;
+        todos.push({text,done,pri,tag,due});
+        imported++;
+      });
+      save(); render();
+      showToast(imported+' task'+(imported===1?'':'s')+' imported from Excel');
+      this.value='';
+    };
+    reader.readAsBinaryString(file);
+  }
+};
+
+load(); render();
+</script>
+</body>
+</html>
